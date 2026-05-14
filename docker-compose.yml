@@ -1,0 +1,16 @@
+services:
+  db:
+    image: postgres:16-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_DB: lorehound
+      POSTGRES_USER: lorehound
+      POSTGRES_PASSWORD: lorehound
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U lorehound"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
