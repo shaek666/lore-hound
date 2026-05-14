@@ -6,3 +6,4 @@ data/
 .uv-cache/
 *.db
 .sisyphus/
+=*
