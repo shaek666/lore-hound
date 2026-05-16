@@ -242,7 +242,7 @@ The Docker image uses a multi-stage build: Python dependencies installed by `uv`
 
 | Variable                 | Required | Default                           | Description                                              |
 | ------------------------ | -------- | --------------------------------- | -------------------------------------------------------- |
-| `LLM_API_KEY`          | Yes      |                                   | API key for the LLM provider                             |
+| `LLM_API_KEY`          | Yes      |                                   | API key. Should start with `sk-` if from SiliconFlow or OpenAI |
 | `LLM_BASE_URL`         | No       | `https://api.siliconflow.cn/v1` | OpenAI-compatible base URL                               |
 | `LLM_MODEL`            | No       | `Qwen/Qwen2.5-72B-Instruct`     | Model identifier                                         |
 | `DATABASE_URL`         | No       | `postgres://...`                | PostgreSQL connection string (auto-configured in Docker) |
