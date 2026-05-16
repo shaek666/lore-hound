@@ -30,7 +30,7 @@ docker compose exec app python manage.py createsuperuser
 
 The API is available at **http://localhost:8000/api/research/**.
 
-No Python, no PostgreSQL, no dependency installation on the host — everything runs in containers. Docker Desktop with Compose v2 is the only prerequisite.
+No Python, no PostgreSQL, no dependency installation on the host, everything runs in containers. Docker Desktop with Compose v2 is the only prerequisite.
 
 ---
 
@@ -104,7 +104,7 @@ Returns the answer (and reasoning, if available) as raw markdown with no JSON wr
 GET /api/research/1/
 ```
 
-Returns everything including `tool_calls` — every function call the agent made, with input arguments and output summaries. Useful for debugging agent behavior and understanding how it reached its conclusions.
+Returns everything including `tool_calls`, every function call the agent made, with input arguments and output summaries. Useful for debugging agent behavior and understanding how it reached its conclusions.
 
 ### List sessions for a repository
 
@@ -196,7 +196,7 @@ lore-hound/
 
 ### Stopping conditions
 
-- **Primary**: The LLM emits `finish_reason="stop"` with no tool calls — it has decided to answer
+- **Primary**: The LLM emits `finish_reason="stop"` with no tool calls, it has decided to answer
 - **Safety**: Hard cap of 60 iterations prevents runaway loops
 - **Truncation recovery**: If the LLM output is truncated (`finish_reason="length"`), the agent sends a continuation prompt and retries
 - **Error handling**: LLM API errors (auth failure, rate limit, server error) fail the session immediately with a descriptive error message

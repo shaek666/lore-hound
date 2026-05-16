@@ -28,9 +28,9 @@ The `reasoning` field was added later after observing that the agent's final ans
 
 ### Reasoning–answer splitting
 
-The LLM is instructed to structure its final response with `REASONING:` and `ANSWER:` headings. The agent loop parses on `"ANSWER:"` — the text before it becomes the reasoning, the text after becomes the final answer. If no `ANSWER:` delimiter is found, the entire output is stored as `final_answer` and `reasoning` stays null. Degradation is safe by design.
+The LLM is instructed to structure its final response with `REASONING:` and `ANSWER:` headings. The agent loop parses on `"ANSWER:"`, the text before it becomes the reasoning, the text after becomes the final answer. If no `ANSWER:` delimiter is found, the entire output is stored as `final_answer` and `reasoning` stays null. Degradation is safe by design.
 
-This costs ~15 tokens in the system prompt and zero architectural complexity. The alternative — a separate reasoning-extraction LLM call — would double latency for marginal gain.
+This costs ~15 tokens in the system prompt and zero architectural complexity. The alternative, a separate reasoning-extraction LLM call, would double latency for marginal gain.
 
 ### JSON response ergonomics (no escaped newlines)
 
@@ -40,11 +40,11 @@ This costs ~15 tokens in the system prompt and zero architectural complexity. Th
 {"final_answer": ["## Overview", "", "The DI system..."]}
 ```
 
-A single string with `\n` escaping is unreadable in `curl`, `jq`, or any JSON viewer — every newline doubles as `\\n` and code fences become a nightmare. An array of lines is trivially joinable (`jq -r '.final_answer[]'`), hits no JSON escaping issues, and is the same data underneath. The database still stores the canonical single string; the serialization layer splits on `\n` at the boundary. This is a presentation decision, not a storage decision.
+A single string with `\n` escaping is unreadable in `curl`, `jq`, or any JSON viewer, every newline doubles as `\\n` and code fences become a nightmare. An array of lines is trivially joinable (`jq -r '.final_answer[]'`), hits no JSON escaping issues, and is the same data underneath. The database still stores the canonical single string; the serialization layer splits on `\n` at the boundary. This is a presentation decision, not a storage decision.
 
 ### Plain-text markdown answer endpoint
 
-`GET /api/research/{id}/answer/` returns `Content-Type: text/markdown` — no JSON wrapper. This is a **human endpoint**: for `curl`, Postman, or anything that just wants to read the answer. It dodges every JSON-escaped-backslash problem entirely. One view, one URL route, zero dependencies. The single best investment for API readability.
+`GET /api/research/{id}/answer/` returns `Content-Type: text/markdown`, no JSON wrapper. This is a **human endpoint**: for `curl`, Postman, or anything that just wants to read the answer. It dodges every JSON-escaped-backslash problem entirely. One view, one URL route, zero dependencies. The single best investment for API readability.
 
 ### LLM provider agnosticism
 
@@ -58,10 +58,10 @@ The agent defaults to **DeepSeek-V4-Pro** (via SiliconFlow's OpenAI-compatible A
 
 | Model | Why not |
 |---|---|
-| **DeepSeek-V4-Pro** (chosen) | Strong tool-calling adherence at ~$0.42/M input tokens. The agent makes 20-40 calls per session — cost matters. Function-calling format matches OpenAI's spec exactly, so the raw HTTP client works without adaptation. |
+| **DeepSeek-V4-Pro** (chosen) | Strong tool-calling adherence at ~$0.42/M input tokens. The agent makes 20-40 calls per session, cost matters. Function-calling format matches OpenAI's spec exactly, so the raw HTTP client works without adaptation. |
 | Claude Sonnet 4 | Better reasoning quality, but 3-5x the cost per token. For a research agent that re-reads files and retries, cost adds up fast. Also requires a proxy layer (OpenAI-compatible adapter) since Anthropic's native API uses a different tool-calling format. |
 | GPT-4o | Solid choice, comparable cost to DeepSeek. Ultimately DeepSeek's function-calling reliability was slightly better in testing for multi-turn tool loops. |
-| **Open-source** local models (Llama, Qwen) | Not viable for this task — local models on consumer hardware lack the context window (32k+) and instruction-following precision needed for reliable multi-step tool use. |
+| **Open-source** local models (Llama, Qwen) | Not viable for this task, local models on consumer hardware lack the context window (32k+) and instruction-following precision needed for reliable multi-step tool use. |
 
 **Default model is configurable**: set `LLM_MODEL` in `.env` to switch. The provider is also independently configurable via `LLM_BASE_URL`, so you can use DeepSeek through a different provider or a different model through SiliconFlow without code changes.
 
@@ -69,7 +69,7 @@ The model is documented in the response (`model_used` field) and stored per sess
 
 ### Thread safety in the agent loop
 
-The original implementation created a `ThreadPoolExecutor` but only cleaned it up on exceptions, leaking the thread pool on successful completions. Fixed by using `with ThreadPoolExecutor(max_workers=5) as executor:` — a context manager guarantees `shutdown(wait=True)` on all exit paths. Basic Python resource management, not an optimization.
+The original implementation created a `ThreadPoolExecutor` but only cleaned it up on exceptions, leaking the thread pool on successful completions. Fixed by using `with ThreadPoolExecutor(max_workers=5) as executor:`, a context manager guarantees `shutdown(wait=True)` on all exit paths. Basic Python resource management, not an optimization.
 
 ### Redundant `load_dotenv()` removal
 
@@ -86,7 +86,7 @@ The original code returned `HTTP 201 Created` regardless of whether the agent co
 
 The entrypoint runs `migrate` then `collectstatic` before `exec gunicorn`, ensuring production readiness without a separate init step. `.dockerignore` explicitly excludes `.env`, `.md` files, `.git/`, and IDE artifacts.
 
-**Windows-specific pitfall**: File execute permissions don't survive `COPY` from a Windows host. Dockerfile explicitly `chmod +x` the entrypoint script — without it, the container fails at startup with "permission denied" on any Windows developer's machine.
+**Windows-specific pitfall**: File execute permissions don't survive `COPY` from a Windows host. Dockerfile explicitly `chmod +x` the entrypoint script, without it, the container fails at startup with "permission denied" on any Windows developer's machine.
 
 ### SECRET_KEY and deploy defaults
 
@@ -94,7 +94,7 @@ The default `SECRET_KEY` was bumped from 36 to 72 characters to pass Django's `c
 
 ### Useless `cache_from` removed from docker-compose
 
-`build.cache_from` was set to `ghcr.io/astral-sh/uv:latest` — an image that has nothing to do with the built image. Docker was ignoring it and rebuilding from scratch every time. Removed. Cache-from is useful when pointing to a previously built version of the same image, not a random unrelated image.
+`build.cache_from` was set to `ghcr.io/astral-sh/uv:latest`, an image that has nothing to do with the built image. Docker was ignoring it and rebuilding from scratch every time. Removed. Cache-from is useful when pointing to a previously built version of the same image, not a random unrelated image.
 
 ---
 
@@ -106,13 +106,13 @@ The default `SECRET_KEY` was bumped from 36 to 72 characters to pass Django's `c
 
 3. **Structured answer sections**: The current `REASONING:` / `ANSWER:` split is a first step. The next iteration would prompt the agent to emit typed sections (overview, components with file links, code examples, flow) and return them as a JSON array for differential frontend rendering.
 
-4. **Hyperlinked file references**: Every `path/to/file.py:42` in the answer could be a permalink to the source on GitHub. The repository URL is already available — a frontend-side regex rewrite would turn plain paths into clickable links. ~10 lines of JavaScript.
+4. **Hyperlinked file references**: Every `path/to/file.py:42` in the answer could be a permalink to the source on GitHub. The repository URL is already available, a frontend-side regex rewrite would turn plain paths into clickable links. ~10 lines of JavaScript.
 
 5. **Embedding-based code search**: The current `search_code` uses Python `str.find()` substring matching that misses semantically relevant code. Embedding indexing would dramatically improve the agent's ability to find relevant functions without reading every file.
 
 6. **Context window management**: The agent loop appends every tool call result to the message list indefinitely. A dynamic trimming strategy (summarize older results, drop tool_call entries beyond a threshold, keep only the N most recent messages) would extend the agent's effective exploration budget.
 
-7. **Idempotent session POST**: If the POST times out on the client side, the caller has no way to know whether the agent completed or failed. A session ID is returned at the start — the client could poll `GET /api/research/{id}/` to check status. Currently the POST blocks until completion, so this pattern would require the Celery/SSE migration first.
+7. **Idempotent session POST**: If the POST times out on the client side, the caller has no way to know whether the agent completed or failed. A session ID is returned at the start, the client could poll `GET /api/research/{id}/` to check status. Currently the POST blocks until completion, so this pattern would require the Celery/SSE migration first.
 
 ---
 
@@ -138,7 +138,7 @@ All AI-generated code was reviewed by reading every changed file. No code was ac
 - **Synchronous POST blocks for 30-120s**: No progress feedback during research. Callers must set long HTTP timeouts or switch to polling.
 - **Substring code search**: `search_code` uses `str.find()`, which misses semantically relevant code. Embedding-based search would be more accurate but adds infrastructure complexity.
 - **No authentication**: The API is open to anyone who can reach the server. Suitable for a demo/internal tool; production would need API keys or OAuth.
-- **Python-only structural summaries**: The `get_file_summary` tool uses `ast.parse()` — non-Python files get line-count summaries only.
+- **Python-only structural summaries**: The `get_file_summary` tool uses `ast.parse()`, non-Python files get line-count summaries only.
 - **No context window eviction**: The agent's message list grows unboundedly. Long research sessions risk hitting the LLM's context limit before reaching an answer.
 - **No streaming**: The entire answer is generated before the POST returns. Users can't see partial progress.
-- **Static files warning in tests**: WhiteNoise warns about a missing `staticfiles/` directory during unit tests. Cosmetic — the directory is created at Docker runtime via `collectstatic` and the entrypoint. Fixing it would add a `conftest.py` that creates the directory, which is more code than the warning merits.
+- **Static files warning in tests**: WhiteNoise warns about a missing `staticfiles/` directory during unit tests. Cosmetic, the directory is created at Docker runtime via `collectstatic` and the entrypoint. Fixing it would add a `conftest.py` that creates the directory, which is more code than the warning merits.
