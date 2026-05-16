@@ -1,11 +1,22 @@
-import json
 import logging
+import threading
+from typing import Any, Optional
 
-from research.models import ToolCall
+from research.models import ResearchSession, ToolCall
 
 logger = logging.getLogger(__name__)
 
 TOOL_REGISTRY = {}
+_sequence_lock = threading.Lock()
+_sequence_counter = 0
+_tool_definitions_cache: list[dict[str, Any]] | None = None
+
+
+def _get_seq():
+    global _sequence_counter
+    with _sequence_lock:
+        _sequence_counter += 1
+        return _sequence_counter
 
 
 def register_tool(fn):
@@ -13,7 +24,7 @@ def register_tool(fn):
     return fn
 
 
-def execute_tool(tool_name: str, arguments: dict, session=None, repo_access=None):
+def execute_tool(tool_name: str, arguments: dict[str, Any], session: Optional[ResearchSession] = None, repo_access=None):
     if tool_name not in TOOL_REGISTRY:
         return {"error": f"Unknown tool: {tool_name}"}
     try:
@@ -29,6 +40,7 @@ def execute_tool(tool_name: str, arguments: dict, session=None, repo_access=None
                 tool_input=arguments,
                 tool_output_summary=output_summary,
                 file_path=arguments.get("path") or arguments.get("file_path"),
+                sequence_number=_get_seq(),
             )
 
         return result
@@ -37,8 +49,11 @@ def execute_tool(tool_name: str, arguments: dict, session=None, repo_access=None
         return {"error": f"Tool {tool_name} failed: {e}"}
 
 
-def get_tool_definitions() -> list[dict]:
-    return [
+def get_tool_definitions() -> list[dict[str, Any]]:
+    global _tool_definitions_cache
+    if _tool_definitions_cache is not None:
+        return _tool_definitions_cache
+    _tool_definitions_cache = [
         {
             "type": "function",
             "function": {
@@ -74,7 +89,11 @@ def get_tool_definitions() -> list[dict]:
                         },
                         "max_length": {
                             "type": "integer",
-                            "description": "Maximum characters to read (default 10000)",
+                            "description": "Maximum characters to read (minimum 1000, default 10000). Read at least 1000 chars each call to avoid excessive round trips.",
+                        },
+                        "offset": {
+                            "type": "integer",
+                            "description": "Line number to start reading from (1-indexed). Use this to read specific sections of a file.",
                         },
                     },
                     "required": ["path"],
@@ -168,27 +187,35 @@ def get_tool_definitions() -> list[dict]:
             },
         },
     ]
+    return _tool_definitions_cache
 
 
 @register_tool
-def list_files(arguments: dict, repo_access=None, session=None):
+def list_files(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
+    if repo_access is None:
+        return {"error": "Repository access not available"}
     path = arguments.get("path", "/")
     pattern = arguments.get("pattern")
     return repo_access.list_files(path, pattern)
 
 
 @register_tool
-def read_file(arguments: dict, repo_access=None, session=None):
+def read_file(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
+    if repo_access is None:
+        return {"error": "Repository access not available"}
     path = arguments.get("path")
-    max_length = arguments.get("max_length", 10000)
+    max_length = max(arguments.get("max_length", 10000), 1000)
+    offset = arguments.get("offset", 0)
     if not path:
         return {"error": "path is required"}
-    content = repo_access.read_file(path, max_length)
+    content = repo_access.read_file(path, max_length, offset)
     return {"path": path, "content": content}
 
 
 @register_tool
-def search_code(arguments: dict, repo_access=None, session=None):
+def search_code(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
+    if repo_access is None:
+        return {"error": "Repository access not available"}
     query = arguments.get("query")
     file_pattern = arguments.get("file_pattern")
     if not query:
@@ -198,7 +225,9 @@ def search_code(arguments: dict, repo_access=None, session=None):
 
 
 @register_tool
-def get_file_summary(arguments: dict, repo_access=None, session=None):
+def get_file_summary(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
+    if repo_access is None:
+        return {"error": "Repository access not available"}
     path = arguments.get("path")
     if not path:
         return {"error": "path is required"}
@@ -207,7 +236,7 @@ def get_file_summary(arguments: dict, repo_access=None, session=None):
 
 
 @register_tool
-def save_finding(arguments: dict, repo_access=None, session=None):
+def save_finding(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
     file_path = arguments.get("file_path")
     note = arguments.get("note")
     if session:
@@ -222,7 +251,7 @@ def save_finding(arguments: dict, repo_access=None, session=None):
 
 
 @register_tool
-def get_previous_findings(arguments: dict, repo_access=None, session=None):
+def get_previous_findings(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
     if not session:
         return {"findings": []}
     repo = session.repository
@@ -242,7 +271,7 @@ def get_previous_findings(arguments: dict, repo_access=None, session=None):
 
 
 @register_tool
-def list_past_sessions(arguments: dict, repo_access=None, session=None):
+def list_past_sessions(arguments: dict[str, Any], repo_access=None, session: Optional[ResearchSession] = None):
     if not session:
         return {"sessions": []}
     limit = arguments.get("limit", 10)

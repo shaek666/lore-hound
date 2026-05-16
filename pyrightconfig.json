@@ -1,0 +1,7 @@
+{
+  "reportIncompatibleMethodOverride": false,
+  "reportIncompatibleVariableOverride": false,
+  "reportGeneralTypeIssues": false,
+  "reportMissingTypeArgument": false,
+  "reportUninitializedInstanceVariable": false
+}

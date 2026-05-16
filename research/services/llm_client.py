@@ -1,7 +1,8 @@
 import json
 import logging
+import os
 import time
-from typing import Optional
+from typing import Any, Optional
 
 import httpx
 
@@ -17,16 +18,19 @@ class LLMClient:
         self.api_key = api_key
         self.base_url = base_url.rstrip("/")
         self.model = model
-        self._client = httpx.Client(timeout=120.0)
+        self._client = httpx.Client(
+            timeout=180.0,
+            verify=os.getenv("SSL_VERIFY", "true").lower() in ("true", "1"),
+        )
 
     def create_with_tools(
         self,
-        messages: list[dict],
-        tools: list[dict],
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
         system_prompt: Optional[str] = None,
         max_tokens: int = 4096,
-    ) -> dict:
-        body = {
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
             "model": self.model,
             "messages": list(messages),
             "tools": tools,
@@ -36,7 +40,8 @@ class LLMClient:
         if system_prompt:
             body["messages"].insert(0, {"role": "system", "content": system_prompt})
 
-        for attempt in range(3):
+        max_retries = 5
+        for attempt in range(max_retries):
             try:
                 resp = self._client.post(
                     f"{self.base_url}/chat/completions",
@@ -47,13 +52,13 @@ class LLMClient:
                     },
                 )
                 if resp.status_code == 429:
-                    wait = 2 ** (attempt + 1)
-                    logger.warning("Rate limited, retrying in %ds", wait)
+                    wait = 5 * (attempt + 1)
+                    logger.warning("Rate limited (attempt %d/%d), retrying in %ds", attempt + 1, max_retries, wait)
                     time.sleep(wait)
                     continue
-                if resp.status_code >= 500 and attempt < 2:
-                    wait = 2 ** (attempt + 1)
-                    logger.warning("Server error %d, retrying in %ds", resp.status_code, wait)
+                if resp.status_code >= 500 and attempt < max_retries - 1:
+                    wait = 5 * (attempt + 1)
+                    logger.warning("Server error %d (attempt %d/%d), retrying in %ds", resp.status_code, attempt + 1, max_retries, wait)
                     time.sleep(wait)
                     continue
                 resp.raise_for_status()
@@ -61,7 +66,7 @@ class LLMClient:
                 choice = data["choices"][0]
                 msg = choice["message"]
 
-                result = {
+                result: dict[str, Any] = {
                     "content": msg.get("content") or "",
                     "tool_calls": [],
                     "finish_reason": choice.get("finish_reason", "stop"),
@@ -103,7 +108,7 @@ class LLMClient:
 
 
 class MockLLMClient:
-    def __init__(self, responses: Optional[list[dict]] = None):
+    def __init__(self, responses: Optional[list[dict[str, Any]]] = None):
         self.responses = responses or []
         self.call_index = 0
 

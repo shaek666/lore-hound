@@ -1,6 +1,7 @@
 import logging
-
+import os
 from django.conf import settings
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.decorators import api_view
@@ -10,6 +11,7 @@ from research.models import ResearchSession
 from research.serializers import (
     ResearchSessionDetailSerializer,
     ResearchSessionListSerializer,
+    ResearchSessionResultSerializer,
     StartResearchSerializer,
 )
 from research.services.agent import ResearchAgent
@@ -21,9 +23,9 @@ logger = logging.getLogger(__name__)
 
 def _build_agent():
     llm = LLMClient(
-        api_key=settings.LLM_API_KEY,
-        base_url=settings.LLM_BASE_URL,
-        model=settings.LLM_MODEL,
+        api_key=os.getenv("LLM_API_KEY", settings.LLM_API_KEY),
+        base_url=os.getenv("LLM_BASE_URL", settings.LLM_BASE_URL),
+        model=os.getenv("LLM_MODEL", settings.LLM_MODEL),
     )
     rm = RepoManager(clone_base_dir=settings.REPOS_CLONE_DIR)
     return ResearchAgent(llm_client=llm, repo_manager=rm)
@@ -63,8 +65,9 @@ def start_research(request):
         session.error_message = f"Agent run failed: {e}"
         session.save()
 
-    result_serializer = ResearchSessionDetailSerializer(session)
-    return Response(result_serializer.data, status=status.HTTP_201_CREATED)
+    result_serializer = ResearchSessionResultSerializer(session)
+    status_code = status.HTTP_201_CREATED if session.status == ResearchSession.Status.COMPLETED else status.HTTP_500_INTERNAL_SERVER_ERROR
+    return Response(result_serializer.data, status=status_code)
 
 
 def list_sessions(request):
@@ -85,3 +88,24 @@ def get_session(request, session_id):
     )
     serializer = ResearchSessionDetailSerializer(session)
     return Response(serializer.data)
+
+
+@api_view(["GET"])
+def get_session_answer(request, session_id):
+    """Return the answer as plain markdown — no JSON wrapping, no \\n escaping."""
+    session = get_object_or_404(
+        ResearchSession.objects.select_related("repository"),
+        id=session_id,
+    )
+    lines = []
+    if session.reasoning:
+        lines.append("# Reasoning\n")
+        lines.append(session.reasoning)
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+    if session.final_answer:
+        lines.append("# Answer\n")
+        lines.append(session.final_answer)
+    text = "\n".join(lines)
+    return HttpResponse(text, content_type="text/markdown; charset=utf-8")

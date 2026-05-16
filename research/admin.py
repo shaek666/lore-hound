@@ -19,7 +19,7 @@ class ResearchSessionAdmin(admin.ModelAdmin):
     def short_question(self, obj):
         return obj.question[:80]
 
-    short_question.short_description = "Question"
+    short_question.short_description = "Question"  # pyright: ignore[reportFunctionMemberAccess]
 
 
 @admin.register(ToolCall)

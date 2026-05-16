@@ -1,9 +1,47 @@
-.venv/
+# ── Python bytecode & runtime ──
 __pycache__/
-*.pyc
+*.py[cod]
+*.so
+.Python
+
+# ── Virtual environment ──
+.venv/
+
+# ── Environment & secrets ──
 .env
+
+# ── IDE / OS artifacts ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Testing & coverage ──
+.pytest_cache/
+.coverage*
+coverage.xml
+htmlcov/
+
+# ── Packaging ──
+*.egg-info/
+dist/
+build/
+
+# ── Project-specific local data ──
 data/
+.tmp/
 .uv-cache/
 *.db
-.sisyphus/
+staticfiles/
+
+# ── Generated / artifact files ──
 =*
+pdf_output.txt
+Responses.txt
+
+# ── Tooling (not shipped) ──
+.opencode/
+.sisyphus/

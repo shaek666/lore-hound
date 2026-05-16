@@ -1,0 +1,51 @@
+# ── Environment ──
+.env
+.venv/
+
+# ── Version control ──
+.git/
+.gitignore
+.sisyphus/
+.opencode/
+
+# ── Python bytecode & caches ──
+__pycache__/
+*.py[cod]
+*.so
+.Python
+.uv-cache/
+.pytest_cache/
+
+# ── Local data (not shipped in image) ──
+data/
+.tmp/
+*.db
+staticfiles/
+
+# ── IDE / OS artefacts ──
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ── Testing & coverage ──
+.coverage*
+coverage.xml
+htmlcov/
+
+# ── Packaging ──
+*.egg-info/
+dist/
+build/
+
+# ── Documentation (not needed at runtime) ──
+*.pdf
+*.md
+*.txt
+
+# ── Other junk ──
+=*
+LICENSE

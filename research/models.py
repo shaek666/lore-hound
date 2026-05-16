@@ -2,6 +2,7 @@ from django.db import models
 
 
 class Repository(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name="ID")
     url = models.URLField(unique=True, max_length=2000)
     name = models.CharField(max_length=255)
     owner = models.CharField(max_length=255, blank=True, default="")
@@ -21,6 +22,7 @@ class Repository(models.Model):
 
 
 class ResearchSession(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name="ID")
     class Status(models.TextChoices):
         PENDING = "pending", "Pending"
         IN_PROGRESS = "in_progress", "In Progress"
@@ -31,6 +33,7 @@ class ResearchSession(models.Model):
         Repository, on_delete=models.CASCADE, related_name="sessions"
     )
     question = models.TextField()
+    reasoning = models.TextField(null=True, blank=True)
     final_answer = models.TextField(null=True, blank=True)
     status = models.CharField(
         max_length=20, choices=Status.choices, default=Status.PENDING
@@ -50,6 +53,7 @@ class ResearchSession(models.Model):
 
 
 class ToolCall(models.Model):
+    id = models.AutoField(primary_key=True, verbose_name="ID")
     session = models.ForeignKey(
         ResearchSession, on_delete=models.CASCADE, related_name="tool_calls"
     )

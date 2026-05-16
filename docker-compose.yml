@@ -1,3 +1,17 @@
+# =============================================================================
+#  lore-hound — Production‑grade Docker Compose
+#
+#  Services
+#    db   — PostgreSQL 16 (persistent, health‑checked)
+#    app  — Django + Gunicorn (multi‑stage build, non‑root)
+#
+#  Usage
+#    docker compose up -d                     # start everything
+#    docker compose logs -f app               # tail app logs
+#    docker compose exec app python manage.py createsuperuser
+#    docker compose down -v                   # destroy (‑v drops volumes)
+# =============================================================================
+
 services:
   db:
     image: postgres:16-alpine
@@ -8,9 +22,54 @@ services:
       POSTGRES_USER: lorehound
       POSTGRES_PASSWORD: lorehound
     volumes:
-      - ./data/postgres:/var/lib/postgresql/data
+      - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U lorehound"]
+      test: ["CMD-SHELL", "pg_isready -U lorehound -d lorehound"]
       interval: 5s
       timeout: 5s
       retries: 5
+      start_period: 10s
+    restart: unless-stopped
+    logging: &default-logging
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  app:
+    build:
+      context: .
+    env_file:
+      - .env
+    environment:
+      # ── Docker networking override ──────────────────────────────
+      # Inside the compose network the database is reachable by its
+      # service name, not "localhost".  This takes precedence over
+      # whatever DATABASE_URL the user set in .env.
+      DATABASE_URL: postgres://lorehound:lorehound@db:5432/lorehound
+
+      # ── Production‑sensible defaults ────────────────────────────
+      DJANGO_DEBUG: "False"
+    ports:
+      - "8000:8000"
+    volumes:
+      # Persist cloned repositories across container restarts
+      - repos_data:/app/data/repos
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import http.client as h; c=h.HTTPConnection('localhost',8000); c.request('GET','/admin/'); r=c.getresponse(); r.read(); assert r.status < 500"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 25s
+    restart: unless-stopped
+    logging:
+      <<: *default-logging
+
+volumes:
+  postgres_data:
+    driver: local
+  repos_data:
+    driver: local
