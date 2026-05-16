@@ -30,7 +30,7 @@ docker compose exec app python manage.py createsuperuser
 
 The API is available at **http://localhost:8000/api/research/**.
 
-No Python, no PostgreSQL, no dependency installation on the host, everything runs in containers. Docker Desktop with Compose v2 is the only prerequisite.
+No Python, no PostgreSQL, no dependency installation on the host, everything runs in containers. Docker with Compose v2 is the only prerequisite.
 
 ---
 
