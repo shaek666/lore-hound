@@ -150,7 +150,7 @@ lore-hound/
     ├── serializers.py            # Request/response serialization
     ├── urls.py                   # URL routing
     ├── views.py                  # REST API endpoints
-    ├── tests.py                  # 16 tests (model, serializer, API, answer)
+    ├── tests.py                  # 18 tests (model, serializer, API, answer, repo reuse regression, reasoning_content replay)
     │
     ├── management/
     │   └── commands/
@@ -278,7 +278,7 @@ This project was built for the CodeFusion AI Senior Backend Developer take-home 
 docker compose exec app python -m pytest -v
 ```
 
-16 tests covering models, serializers, API endpoints, and the plain-text answer endpoint. Tests run against SQLite inside the Docker container (independent of the PostgreSQL volume).
+18 tests covering models, serializers, API endpoints, the plain-text answer endpoint, repo reuse behavior, and reasoning_content replay. Tests run against SQLite inside the Docker container (independent of the PostgreSQL volume).
 
 ---
 

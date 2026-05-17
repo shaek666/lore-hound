@@ -91,11 +91,14 @@ class ResearchAgent:
                     session.output_tokens = (session.output_tokens or 0) + usage.get("completion_tokens", 0)
 
                     content = response.get("content", "")
+                    reasoning_content = response.get("reasoning_content", "")
                     tool_calls = response.get("tool_calls", [])
                     finish_reason = response.get("finish_reason", "stop")
 
-                    if content or tool_calls:
+                    if content or reasoning_content or tool_calls:
                         assistant_msg: dict[str, Any] = {"role": "assistant"}
+                        if reasoning_content:
+                            assistant_msg["reasoning_content"] = reasoning_content
                         if content:
                             assistant_msg["content"] = content
                         if tool_calls:
@@ -118,7 +121,7 @@ class ResearchAgent:
 
                     if finish_reason == "stop" and not tool_calls:
                         content = content or ""
-                        reasoning = ""
+                        reasoning = reasoning_content or ""
                         answer = content
 
                         if "ANSWER:" in content:

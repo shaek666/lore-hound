@@ -1,5 +1,9 @@
 from django.test import TestCase
 from rest_framework import status
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+import json
+from pathlib import Path
 
 from research.models import Repository, ResearchSession, ToolCall
 from research.serializers import (
@@ -7,6 +11,8 @@ from research.serializers import (
     ResearchSessionResultSerializer,
     StartResearchSerializer,
 )
+from research.services.agent import ResearchAgent
+from research.services.repo_manager import RepoManager
 
 
 class ModelTests(TestCase):
@@ -46,6 +52,94 @@ class ModelTests(TestCase):
         )
         assert tc.tool_name == "read_file"
         assert str(tc) == "[1] read_file"
+
+    def test_ensure_repo_reuses_existing_clone(self):
+        with TemporaryDirectory() as clone_dir:
+            repo = Repository.objects.create(
+                url="https://github.com/tiangolo/fastapi",
+                name="fastapi",
+                owner="tiangolo",
+                clone_path=clone_dir,
+            )
+
+            manager = RepoManager(clone_base_dir=clone_dir)
+            with patch("research.services.repo_manager.subprocess.run") as mock_run:
+                reused = manager.ensure_repo(repo.url)
+
+            assert reused.id == repo.id
+            assert reused.clone_path == clone_dir
+            mock_run.assert_not_called()
+
+
+class AgentTests(TestCase):
+    def test_replays_reasoning_content_between_llm_calls(self):
+        with TemporaryDirectory() as repo_dir:
+            Path(repo_dir, "routes.py").write_text("print('hello')\n", encoding="utf-8")
+
+            repo = Repository.objects.create(
+                url="https://github.com/tiangolo/fastapi",
+                name="fastapi",
+                owner="tiangolo",
+                clone_path=repo_dir,
+            )
+            session = ResearchSession.objects.create(
+                repository=repo,
+                question="How is routing organized?",
+            )
+
+            class RecordingLLMClient:
+                model = "test-model"
+
+                def __init__(self):
+                    self.calls = []
+                    self.responses = [
+                        {
+                            "content": "",
+                            "reasoning_content": "Thinking about routing",
+                            "tool_calls": [
+                                {
+                                    "id": "call_1",
+                                    "type": "function",
+                                    "function": {
+                                        "name": "read_file",
+                                        "arguments": {"path": "routes.py", "max_length": 1000},
+                                    },
+                                }
+                            ],
+                            "finish_reason": "tool_calls",
+                            "usage": {"prompt_tokens": 12, "completion_tokens": 6},
+                        },
+                        {
+                            "content": "Routing is organized around app and router modules.",
+                            "reasoning_content": "I found the routing modules.",
+                            "tool_calls": [],
+                            "finish_reason": "stop",
+                            "usage": {"prompt_tokens": 10, "completion_tokens": 8},
+                        },
+                    ]
+
+                def create_with_tools(self, messages, tools, system_prompt=None, max_tokens=4096):
+                    self.calls.append({
+                        "messages": json.loads(json.dumps(messages)),
+                        "tools": json.loads(json.dumps(tools)),
+                        "system_prompt": system_prompt,
+                        "max_tokens": max_tokens,
+                    })
+                    return self.responses[len(self.calls) - 1]
+
+            llm = RecordingLLMClient()
+            agent = ResearchAgent(llm_client=llm, repo_manager=RepoManager(clone_base_dir=repo_dir))
+
+            completed = agent.run(session)
+            completed.refresh_from_db()
+
+            assert completed.status == ResearchSession.Status.COMPLETED
+            assert completed.reasoning == "I found the routing modules."
+            assert completed.final_answer == "Routing is organized around app and router modules."
+            assert len(llm.calls) == 2
+            second_call_messages = llm.calls[1]["messages"]
+            assistant_messages = [message for message in second_call_messages if message["role"] == "assistant"]
+            assert assistant_messages[0]["reasoning_content"] == "Thinking about routing"
 
 
 class SerializerTests(TestCase):

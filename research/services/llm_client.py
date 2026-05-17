@@ -68,6 +68,7 @@ class LLMClient:
 
                 result: dict[str, Any] = {
                     "content": msg.get("content") or "",
+                    "reasoning_content": msg.get("reasoning_content") or "",
                     "tool_calls": [],
                     "finish_reason": choice.get("finish_reason", "stop"),
                     "usage": data.get("usage", {}),
