@@ -37,12 +37,6 @@ data/
 *.db
 staticfiles/
 
-# ── Generated / artifact files ──
-=*
-*.pdf
-pdf_output.txt
-Responses.txt
-
 # ── Tooling (not shipped) ──
 .opencode/
 .sisyphus/
